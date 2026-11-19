@@ -1,6 +1,31 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
-  <rect width="128" height="128" rx="26" fill="#2e9b4e"/>
-  <path d="M30 78V66a34 34 0 0 1 68 0v12" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round"/>
-  <rect x="22" y="72" width="20" height="32" rx="8" fill="#fff"/>
-  <rect x="86" y="72" width="20" height="32" rx="8" fill="#fff"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f9873f"/>
+      <stop offset="1" stop-color="#c2410c"/>
+    </linearGradient>
+  </defs>
+  <circle cx="256" cy="256" r="248" fill="url(#bg)"/>
+  <!-- headphones -->
+  <path d="M112 300V250a144 144 0 0 1 288 0v50" fill="none" stroke="#fff" stroke-width="30" stroke-linecap="round"/>
+  <rect x="82" y="262" width="52" height="92" rx="24" fill="#fff"/>
+  <rect x="378" y="262" width="52" height="92" rx="24" fill="#fff"/>
+  <!-- monitor -->
+  <rect x="160" y="178" width="192" height="140" rx="18" fill="#fff"/>
+  <rect x="174" y="192" width="164" height="112" rx="9" fill="#7c2d12"/>
+  <!-- book spines as activity bars -->
+  <rect x="200" y="244" width="30" height="48" rx="7" fill="#fff"/>
+  <rect x="241" y="214" width="30" height="78" rx="7" fill="#fff"/>
+  <rect x="282" y="232" width="30" height="60" rx="7" fill="#fff"/>
+  <rect x="204" y="258" width="22" height="4" rx="2" fill="#f9873f"/>
+  <rect x="245" y="228" width="22" height="4" rx="2" fill="#f9873f"/>
+  <rect x="286" y="246" width="22" height="4" rx="2" fill="#f9873f"/>
+  <!-- stand -->
+  <rect x="236" y="318" width="40" height="22" fill="#fff"/>
+  <rect x="204" y="338" width="104" height="16" rx="8" fill="#fff"/>
+  <!-- magnifying glass -->
+  <line x1="372" y1="388" x2="412" y2="428" stroke="#c2410c" stroke-width="34" stroke-linecap="round"/>
+  <circle cx="336" cy="352" r="42" fill="#c2410c" fill-opacity=".92" stroke="#c2410c" stroke-width="12"/>
+  <line x1="372" y1="388" x2="412" y2="428" stroke="#fff" stroke-width="18" stroke-linecap="round"/>
+  <circle cx="336" cy="352" r="38" fill="#fdba74" fill-opacity=".35" stroke="#fff" stroke-width="14"/>
 </svg>
