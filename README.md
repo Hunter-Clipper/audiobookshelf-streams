@@ -1,4 +1,4 @@
-# Audiobookshelf Streams
+# <img src="icon.svg" alt="" width="40" align="absmiddle"> Audiobookshelf Streams
 
 An Unraid plugin that shows **who is listening on your [Audiobookshelf](https://www.audiobookshelf.org/) server** right now, as a tile on the Unraid Dashboard.
 
