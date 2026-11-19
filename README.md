@@ -1,4 +1,4 @@
-# AudioBookShelf Streams
+# Audiobookshelf Streams
 
 An Unraid plugin that shows **who is listening on your [Audiobookshelf](https://www.audiobookshelf.org/) server** right now, as a tile on the Unraid Dashboard.
 
@@ -21,7 +21,7 @@ In Unraid: **Plugins → Install Plugin**, paste:
 https://raw.githubusercontent.com/Hunter-Clipper/audiobookshelf-streams/main/audiobookshelf.streams.plg
 ```
 
-Then open **Settings → Utilities → AudioBookShelf Streams** and enter:
+Then open **Settings → Utilities → Audiobookshelf Streams** and enter:
 
 1. **Server URL**, e.g. `http://192.168.1.10:13378`
 2. **API token** of an **admin** user (Audiobookshelf → Config → Users → your user → API token)

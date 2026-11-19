@@ -1,5 +1,5 @@
 Menu="Utilities"
-Title="AudioBookShelf Streams"
+Title="Audiobookshelf Streams"
 Icon="headphones"
 ---
 <?php
@@ -54,7 +54,7 @@ $abss_csrf = function_exists('abss_csrf_token') ? abss_csrf_token() : '';
     <label><input type="checkbox" id="abss-connected"> Also list users who are connected but not playing</label>
   </div>
   <div class="abss-field">
-    <label><input type="checkbox" id="abss-dashboard"> Show the AudioBookShelf Streams tile on the Dashboard</label>
+    <label><input type="checkbox" id="abss-dashboard"> Show the Audiobookshelf Streams tile on the Dashboard</label>
   </div>
 
   <div class="abss-field">
