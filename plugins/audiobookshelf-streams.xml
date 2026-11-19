@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<Plugin>
+  <Name>Audiobookshelf Streams</Name>
+  <PluginURL>https://raw.githubusercontent.com/Hunter-Clipper/audiobookshelf-streams/main/audiobookshelf.streams.plg</PluginURL>
+  <PluginAuthor>Hunter Clipper</PluginAuthor>
+  <Support>https://github.com/Hunter-Clipper/audiobookshelf-streams/issues</Support>
+  <Project>https://github.com/Hunter-Clipper/audiobookshelf-streams</Project>
+  <Icon>https://raw.githubusercontent.com/Hunter-Clipper/audiobookshelf-streams/main/icon.svg</Icon>
+  <Category>Tools:Utilities</Category>
+  <License>MIT</License>
+  <MinVer>6.12.0</MinVer>
+  <Overview>See who is listening on your Audiobookshelf server right from the Unraid Dashboard. Shows each user as Listening, Paused or Connected, with the book cover, title and author, a progress bar and the device in use. Includes a stop-session button and auto-refresh. Requires an admin API token from your Audiobookshelf server; the token stays on the server and is never sent to the browser.</Overview>
+</Plugin>

@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<CommunityApplications>
+  <Profile>Unraid plugins by Hunter Clipper. Currently: Audiobookshelf Streams, a Dashboard tile showing who is listening on your Audiobookshelf server. Support is available through the project's GitHub issues.</Profile>
+  <Icon>https://raw.githubusercontent.com/Hunter-Clipper/audiobookshelf-streams/main/icon.svg</Icon>
+  <WebPage>https://github.com/Hunter-Clipper/audiobookshelf-streams</WebPage>
+</CommunityApplications>
