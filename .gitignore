@@ -1,0 +1,4 @@
+*.swp
+.DS_Store
+.claude/
+CLAUDE.md

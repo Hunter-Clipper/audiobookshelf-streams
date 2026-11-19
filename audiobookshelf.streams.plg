@@ -1,0 +1,822 @@
+<?xml version='1.0' standalone='yes'?>
+
+<!DOCTYPE PLUGIN [
+<!ENTITY name      "audiobookshelf.streams">
+<!ENTITY author    "Hunter Clipper">
+<!ENTITY version   "2026.11.19">
+<!ENTITY pluginURL "https://raw.githubusercontent.com/Hunter-Clipper/audiobookshelf-streams/main/audiobookshelf.streams.plg">
+]>
+
+<PLUGIN name="&name;" author="&author;" version="&version;" pluginURL="&pluginURL;" support="https://github.com/Hunter-Clipper/audiobookshelf-streams/issues" icon="headphones" min="6.12.0">
+
+<CHANGES>
+<![CDATA[
+###2026.11.19
+- Initial release. Dashboard tile showing which Audiobookshelf users are
+  Listening, Paused or Connected, with cover, title/author, progress bar,
+  device, a stop-session button and auto-refresh. Settings under
+  Settings > Utilities > Audiobookshelf Streams (server URL, admin API token,
+  refresh interval, paused threshold, self-signed TLS option, Test connection).
+]]>
+</CHANGES>
+
+<!--
+Copyright 2026, Hunter Clipper
+Audiobookshelf Streams - see who is listening on Audiobookshelf from the
+Unraid Dashboard. Inspired by the Plex Streams plugin by dorgan.
+-->
+
+<FILE Name="/usr/local/emhttp/plugins/audiobookshelf.streams/AudiobookshelfStreams.page" Mode="0644" SHA256="fbdfb9c616ad7fba07f14949670de1efff3afe52fd89ece3b5857efb11310633">
+<INLINE>
+<![CDATA[
+Menu="Utilities"
+Title="Audiobookshelf Streams"
+Icon="headphones"
+---
+<?php
+require_once '/usr/local/emhttp/plugins/audiobookshelf.streams/include/csrf.php';
+$abss_csrf = function_exists('abss_csrf_token') ? abss_csrf_token() : '';
+?>
+<style>
+.abss-card { max-width: 680px; }
+.abss-card h3 { margin: 0 0 12px 0; padding-bottom: 8px; border-bottom: 2px solid var(--border, #ddd); }
+.abss-field { margin-bottom: 14px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.abss-field > label.abss-lbl { width: 210px; flex: 0 0 210px; }
+.abss-field input[type=text], .abss-field input[type=password], .abss-field input[type=number] { width: 340px; max-width: 100%; }
+.abss-help { font-size: 0.9em; color: var(--text-secondary, #888); margin: 2px 0 14px 0; }
+#abss-status { margin-left: 12px; font-size: 0.9em; }
+#abss-status.ok { color: #2e9b4e; }
+#abss-status.err { color: #c0392b; }
+</style>
+
+<div class="abss-card">
+  <h3>Audiobookshelf server</h3>
+  <div class="abss-field">
+    <label class="abss-lbl" for="abss-url">Server URL</label>
+    <input type="text" id="abss-url" placeholder="http://192.168.1.10:13378" autocomplete="off">
+  </div>
+  <div class="abss-field">
+    <label class="abss-lbl" for="abss-token">API token</label>
+    <input type="password" id="abss-token" autocomplete="new-password" placeholder="">
+    <label><input type="checkbox" id="abss-clear-token"> Remove saved token</label>
+  </div>
+  <p class="abss-help">
+    Use an <strong>admin</strong> user's API token (Audiobookshelf &rarr; Config &rarr; Users &rarr; your user &rarr; API token).
+    The token is stored on the flash drive and is never sent to your browser; leave the field blank to keep the saved one.
+  </p>
+  <div class="abss-field">
+    <label><input type="checkbox" id="abss-insecure"> Allow self-signed / invalid HTTPS certificates</label>
+  </div>
+
+  <h3>Display</h3>
+  <div class="abss-field">
+    <label class="abss-lbl" for="abss-refresh">Refresh every (seconds)</label>
+    <input type="number" id="abss-refresh" min="3" max="300" style="width:90px">
+  </div>
+  <div class="abss-field">
+    <label class="abss-lbl" for="abss-paused">Paused after (seconds)</label>
+    <input type="number" id="abss-paused" min="10" max="600" style="width:90px">
+  </div>
+  <p class="abss-help">
+    Audiobookshelf has no explicit "paused" flag. A player syncs its position every few seconds while playing, so a
+    session that has not synced for this long is shown as <em>Paused</em>.
+  </p>
+  <div class="abss-field">
+    <label><input type="checkbox" id="abss-connected"> Also list users who are connected but not playing</label>
+  </div>
+  <div class="abss-field">
+    <label><input type="checkbox" id="abss-dashboard"> Show the Audiobookshelf Streams tile on the Dashboard</label>
+  </div>
+
+  <div class="abss-field">
+    <button type="button" class="btn" id="abss-save">Apply</button>
+    <button type="button" class="btn" id="abss-test">Test connection</button>
+    <span id="abss-status"></span>
+  </div>
+</div>
+
+<script>
+(function() {
+  var EXEC = '/plugins/audiobookshelf.streams/include/exec.php';
+  var CSRF = <?= json_encode($abss_csrf) ?>;
+
+  function $id(id) { return document.getElementById(id); }
+  function yn(id) { return $id(id).checked ? 'yes' : 'no'; }
+  function setStatus(text, cls) {
+    var s = $id('abss-status');
+    s.textContent = text;
+    s.className = cls || '';
+  }
+  function errText(xhr) {
+    try { return JSON.parse(xhr.responseText).error; } catch (e) { return 'request failed'; }
+  }
+  function formData(extra) {
+    var d = {
+      ABS_URL: $id('abss-url').value.trim(),
+      ABS_TOKEN: $id('abss-token').value.trim(),
+      INSECURE_TLS: yn('abss-insecure'),
+      REFRESH_SECONDS: $id('abss-refresh').value,
+      PAUSED_AFTER: $id('abss-paused').value,
+      SHOW_CONNECTED: yn('abss-connected'),
+      SHOW_DASHBOARD: yn('abss-dashboard'),
+      CLEAR_TOKEN: yn('abss-clear-token'),
+      csrf_token: CSRF
+    };
+    for (var k in extra) d[k] = extra[k];
+    return d;
+  }
+
+  function load() {
+    $.getJSON(EXEC, { action: 'load_settings' }).done(function(r) {
+      if (!r.ok) return;
+      var s = r.settings;
+      $id('abss-url').value = s.ABS_URL;
+      $id('abss-token').placeholder = s.TOKEN_SET === 'yes' ? '•••••••• (saved)' : 'paste token';
+      $id('abss-insecure').checked = s.INSECURE_TLS === 'yes';
+      $id('abss-refresh').value = s.REFRESH_SECONDS;
+      $id('abss-paused').value = s.PAUSED_AFTER;
+      $id('abss-connected').checked = s.SHOW_CONNECTED === 'yes';
+      $id('abss-dashboard').checked = s.SHOW_DASHBOARD === 'yes';
+    });
+  }
+
+  $id('abss-save').addEventListener('click', function() {
+    setStatus('Saving…');
+    $.post(EXEC, formData({ action: 'save_settings' }), null, 'json')
+      .done(function(r) {
+        if (r.ok) { setStatus('Saved.', 'ok'); $id('abss-token').value = ''; $id('abss-clear-token').checked = false; load(); }
+        else setStatus(r.error || 'Save failed.', 'err');
+      })
+      .fail(function(xhr) { setStatus(errText(xhr), 'err'); });
+  });
+
+  $id('abss-test').addEventListener('click', function() {
+    setStatus('Testing…');
+    $.post(EXEC, formData({ action: 'test' }), null, 'json')
+      .done(function(r) {
+        if (r.ok) setStatus('Connected — ' + r.online + ' user' + (r.online === 1 ? '' : 's') + ' online right now.', 'ok');
+        else setStatus(r.error || 'Test failed.', 'err');
+      })
+      .fail(function(xhr) { setStatus(errText(xhr), 'err'); });
+  });
+
+  if (window.jQuery) $(load); else document.addEventListener('DOMContentLoaded', load);
+})();
+</script>
+]]>
+</INLINE>
+</FILE>
+
+<FILE Name="/usr/local/emhttp/plugins/audiobookshelf.streams/AudiobookshelfStreamsDashboard.page" Mode="0644" SHA256="2b0544565b4129f53b389185914c984fde7f4ccf0ffabab011724c2d33d807bb">
+<INLINE>
+<![CDATA[
+Menu="Dashboard:61"
+Cond="!file_exists('/boot/config/plugins/audiobookshelf.streams/settings.cfg') || (@parse_ini_file('/boot/config/plugins/audiobookshelf.streams/settings.cfg', false, INI_SCANNER_RAW)['SHOW_DASHBOARD'] ?? 'yes') !== 'no'"
+Icon="headphones"
+---
+<?php
+$abss_plugin = 'audiobookshelf.streams';
+require_once '/usr/local/emhttp/plugins/audiobookshelf.streams/include/csrf.php';
+require_once '/usr/local/emhttp/plugins/audiobookshelf.streams/include/common.php';
+$abss_csrf = function_exists('abss_csrf_token') ? abss_csrf_token() : '';
+$abss_refresh = (int)(abss_settings()['REFRESH_SECONDS']);
+
+$mytiles[$abss_plugin]['column2'] = <<<'EOT'
+<tbody title="_(Who is listening on Audiobookshelf)_">
+<tr><td>
+  <div class="tile-header" id="abss-dashboard-card">
+    <div class="tile-header-left">
+      <i class="fa fa-fw fa-headphones f32"></i>
+      <div class="section">
+        <h3 class="tile-header-main" id="abss-dashboard-title">_(Audiobookshelf Streams)_</h3>
+      </div>
+    </div>
+    <div class="tile-header-right">
+      <div class="tile-header-right-controls">
+        <a href="/Utilities/AudiobookshelfStreams" title="_(Audiobookshelf Streams settings)_"><i class="fa fa-fw fa-cog control"></i></a>
+      </div>
+    </div>
+  </div>
+</td></tr>
+<tr><td>
+<div id="abss-tile">
+  <div class="abss-msg" id="abss-msg">loading&hellip;</div>
+  <div id="abss-list"></div>
+</div>
+</td></tr>
+</tbody>
+EOT;
+
+// Pre-7.2 dashboards stacked title/cog vertically inside .tile-header; patch
+// the DOM at runtime so the same markup renders sensibly on both.
+$isResponsiveWebgui = version_compare(parse_ini_file('/etc/unraid-version')['version'] ?? '', '7.2', '>=');
+if (!$isResponsiveWebgui) {
+    $mytiles[$abss_plugin]['column2'] .= <<<'EOT'
+<script>
+$(function() {
+    $('#abss-dashboard-title').replaceWith(function() {
+        return $(this).text() + "<br>";
+    });
+    $('#abss-dashboard-card .tile-header-right-controls').prependTo('#abss-dashboard-card');
+});
+</script>
+EOT;
+}
+?>
+<style>
+#abss-tile { font-size: 0.92em; }
+#abss-tile .abss-msg { color: var(--text-secondary, #888); padding: 2px 0 6px 0; }
+#abss-tile .abss-msg.abss-err { color: #c0392b; }
+#abss-tile .abss-row { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; border-top: 1px solid var(--border, rgba(128,128,128,.25)); }
+#abss-tile .abss-row:first-child { border-top: 0; }
+#abss-tile .abss-cover { width: 48px; height: 48px; flex: 0 0 48px; border-radius: 4px; object-fit: cover; background: rgba(128,128,128,.2); }
+#abss-tile .abss-body { flex: 1 1 auto; min-width: 0; }
+#abss-tile .abss-top { display: flex; align-items: center; gap: 8px; }
+#abss-tile .abss-user { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#abss-tile .abss-pill { font-size: 0.78em; padding: 1px 8px; border-radius: 10px; color: #fff; white-space: nowrap; }
+#abss-tile .abss-pill.listening { background: #2e9b4e; }
+#abss-tile .abss-pill.paused { background: #d68a1a; }
+#abss-tile .abss-pill.connected { background: #7f8c8d; }
+#abss-tile .abss-stop { margin-left: auto; cursor: pointer; opacity: .65; background: none; border: 0; color: inherit; padding: 2px 4px; }
+#abss-tile .abss-stop:hover { opacity: 1; color: #c0392b; }
+#abss-tile .abss-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#abss-tile .abss-bar { height: 5px; border-radius: 3px; background: rgba(128,128,128,.3); margin: 4px 0 2px 0; overflow: hidden; }
+#abss-tile .abss-bar > span { display: block; height: 100%; background: #2e9b4e; }
+#abss-tile .abss-row.paused .abss-bar > span { background: #d68a1a; }
+#abss-tile .abss-meta { color: var(--text-secondary, #888); font-size: 0.88em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#abss-tile .abss-row.connected { align-items: center; padding: 5px 0; }
+</style>
+<script>
+(function() {
+  var EXEC = '/plugins/audiobookshelf.streams/include/exec.php';
+  var CSRF = <?= json_encode($abss_csrf) ?>;
+  var refreshMs = Math.max(3, <?= $abss_refresh ?: 10 ?>) * 1000;
+  var timer = null, busy = false;
+
+  function $id(id) { return document.getElementById(id); }
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+  function fmtTime(sec) {
+    sec = Math.max(0, Math.round(sec));
+    var h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60);
+    return h > 0 ? h + 'h ' + m + 'm' : m + 'm';
+  }
+  var LABELS = { listening: 'Listening', paused: 'Paused', connected: 'Connected' };
+
+  function renderRow(s) {
+    var row = el('div', 'abss-row ' + s.state);
+    var hasSession = !!s.session_id;
+    if (hasSession && s.item_id) {
+      var img = el('img', 'abss-cover');
+      img.alt = '';
+      img.loading = 'lazy';
+      img.src = EXEC + '?action=cover&id=' + encodeURIComponent(s.item_id);
+      row.appendChild(img);
+    }
+    var body = el('div', 'abss-body');
+    var top = el('div', 'abss-top');
+    top.appendChild(el('span', 'abss-user', s.user));
+    top.appendChild(el('span', 'abss-pill ' + s.state, LABELS[s.state] || s.state));
+    if (hasSession) {
+      var stop = el('button', 'abss-stop');
+      stop.type = 'button';
+      stop.title = 'Stop this session';
+      stop.appendChild(el('i', 'fa fa-fw fa-stop-circle'));
+      stop.addEventListener('click', function() { stopSession(s); });
+      top.appendChild(stop);
+    }
+    body.appendChild(top);
+    if (hasSession) {
+      var t = s.title + (s.author ? ' — ' + s.author : '');
+      var title = el('div', 'abss-title', t);
+      title.title = t;
+      body.appendChild(title);
+      var bar = el('div', 'abss-bar');
+      var fill = el('span');
+      fill.style.width = (s.progress || 0) + '%';
+      bar.appendChild(fill);
+      body.appendChild(bar);
+      var meta = [Math.round(s.progress || 0) + '%'];
+      if (s.duration > 0) meta.push(fmtTime(s.duration - s.current) + ' left');
+      if (s.device) meta.push(s.device);
+      var m = el('div', 'abss-meta', meta.join(' · '));
+      m.title = meta.join(' · ');
+      body.appendChild(m);
+    }
+    row.appendChild(body);
+    return row;
+  }
+
+  function render(data) {
+    var msg = $id('abss-msg'), list = $id('abss-list');
+    if (!msg || !list) return;
+    list.textContent = '';
+    if (!data.ok) {
+      msg.className = 'abss-msg' + (data.configured ? ' abss-err' : '');
+      msg.textContent = data.configured ? data.error : 'Not configured — open the settings (cog) to add your server URL and API token.';
+      msg.style.display = '';
+      return;
+    }
+    var active = data.streams.filter(function(s) { return s.state !== 'connected'; }).length;
+    if (!data.streams.length) {
+      msg.className = 'abss-msg';
+      msg.textContent = 'No one is connected right now.';
+      msg.style.display = '';
+      return;
+    }
+    msg.className = 'abss-msg';
+    msg.textContent = active + ' active session' + (active === 1 ? '' : 's');
+    msg.style.display = '';
+    data.streams.forEach(function(s) { list.appendChild(renderRow(s)); });
+  }
+
+  function poll() {
+    if (busy || document.hidden) return;
+    busy = true;
+    $.getJSON(EXEC, { action: 'status' })
+      .done(render)
+      .fail(function() {
+        render({ ok: false, configured: true, error: 'Could not reach the Unraid backend.' });
+      })
+      .always(function() { busy = false; });
+  }
+
+  function stopSession(s) {
+    if (!confirm('Stop ' + s.user + '’s session of “' + s.title + '”?\n\nThis closes the session on the Audiobookshelf server. A player that is still running may start a new one.')) return;
+    $.post(EXEC, { action: 'stop', session_id: s.session_id, csrf_token: CSRF }, null, 'json')
+      .done(function(r) {
+        if (!r.ok) alert('Could not stop the session: ' + (r.error || 'unknown error'));
+        poll();
+      })
+      .fail(function(xhr) {
+        var m = 'request failed';
+        try { m = JSON.parse(xhr.responseText).error || m; } catch (e) {}
+        alert('Could not stop the session: ' + m);
+      });
+  }
+
+  function start() {
+    poll();
+    timer = setInterval(poll, refreshMs);
+    document.addEventListener('visibilitychange', function() { if (!document.hidden) poll(); });
+  }
+  if (window.jQuery) $(start); else document.addEventListener('DOMContentLoaded', start);
+})();
+</script>
+]]>
+</INLINE>
+</FILE>
+
+<FILE Name="/usr/local/emhttp/plugins/audiobookshelf.streams/include/common.php" Mode="0644" SHA256="33f2aab0681da032bef4cd077f603aafe8bf6bcbde782498c14947df560695bf">
+<INLINE>
+<![CDATA[
+<?php
+/* Audiobookshelf Streams - settings storage and Audiobookshelf API client.
+ *
+ * Non-secret settings live in settings.cfg; the API token lives in its own
+ * file so it is never parsed/echoed along with ordinary settings and never
+ * sent to the browser.
+ */
+
+const ABSS_PLUGIN   = 'audiobookshelf.streams';
+const ABSS_CFG_DIR  = '/boot/config/plugins/audiobookshelf.streams';
+const ABSS_CFG      = ABSS_CFG_DIR . '/settings.cfg';
+const ABSS_TOKEN    = ABSS_CFG_DIR . '/token';
+const ABSS_USERS_CACHE = '/tmp/audiobookshelf.streams.users.json';
+
+function abss_log($message) {
+    openlog(ABSS_PLUGIN, LOG_PID, LOG_USER);
+    syslog(LOG_WARNING, $message);
+    closelog();
+}
+
+function abss_defaults() {
+    return [
+        'ABS_URL'         => '',
+        'INSECURE_TLS'    => 'no',   // allow self-signed certificates
+        'REFRESH_SECONDS' => '10',
+        'PAUSED_AFTER'    => '45',   // seconds without a sync before "Paused"
+        'SHOW_CONNECTED'  => 'yes',  // list users that are online but not playing
+        'SHOW_DASHBOARD'  => 'yes',
+    ];
+}
+
+function abss_settings() {
+    $s = abss_defaults();
+    if (is_readable(ABSS_CFG)) {
+        $ini = @parse_ini_file(ABSS_CFG, false, INI_SCANNER_RAW);
+        if (is_array($ini)) {
+            foreach ($s as $k => $_) {
+                if (isset($ini[$k])) $s[$k] = trim((string)$ini[$k], "\"' ");
+            }
+        }
+    }
+    return $s;
+}
+
+function abss_token() {
+    if (!is_readable(ABSS_TOKEN)) return '';
+    return trim((string)@file_get_contents(ABSS_TOKEN));
+}
+
+// Returns an error string, or '' on success.
+function abss_validate_url($url) {
+    if ($url === '') return 'Server URL is required.';
+    if (!preg_match('#^https?://[^\s"\'<>]+$#i', $url)) return 'Server URL must start with http:// or https://';
+    return '';
+}
+
+function abss_normalize_url($url) {
+    return rtrim(trim($url), '/');
+}
+
+function abss_save_settings(array $s) {
+    if (!is_dir(ABSS_CFG_DIR) && !@mkdir(ABSS_CFG_DIR, 0700, true)) return false;
+    $out = '';
+    foreach (abss_defaults() as $k => $_) {
+        $v = isset($s[$k]) ? (string)$s[$k] : '';
+        $v = str_replace(["\r", "\n", '"'], '', $v);
+        $out .= $k . '="' . $v . '"' . "\n";
+    }
+    return @file_put_contents(ABSS_CFG, $out, LOCK_EX) !== false;
+}
+
+function abss_save_token($token) {
+    if (!is_dir(ABSS_CFG_DIR) && !@mkdir(ABSS_CFG_DIR, 0700, true)) return false;
+    $old = umask(0077);
+    $ok = @file_put_contents(ABSS_TOKEN, trim($token) . "\n", LOCK_EX) !== false;
+    umask($old);
+    @chmod(ABSS_TOKEN, 0600);
+    return $ok;
+}
+
+/* Calls the Audiobookshelf API.
+ * Returns ['code' => int, 'body' => string, 'type' => string, 'date' => int|null, 'error' => string]
+ * 'date' is the server's own clock (from the HTTP Date header) so session
+ * ages are computed against ABS's time, not ours.
+ */
+function abss_api($method, $path, array $opts = []) {
+    $url      = $opts['url']      ?? abss_normalize_url(abss_settings()['ABS_URL']);
+    $token    = $opts['token']    ?? abss_token();
+    $insecure = $opts['insecure'] ?? (abss_settings()['INSECURE_TLS'] === 'yes');
+    $result = ['code' => 0, 'body' => '', 'type' => '', 'date' => null, 'error' => ''];
+
+    if ($err = abss_validate_url($url)) { $result['error'] = $err; return $result; }
+    if ($token === '')                  { $result['error'] = 'No API token configured.'; return $result; }
+
+    $ch = curl_init($url . $path);
+    $date = null;
+    curl_setopt_array($ch, [
+        CURLOPT_CUSTOMREQUEST  => $method,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_CONNECTTIMEOUT => 4,
+        CURLOPT_TIMEOUT        => 8,
+        CURLOPT_FOLLOWLOCATION => false,
+        CURLOPT_HTTPHEADER     => ['Authorization: Bearer ' . $token, 'Accept: application/json'],
+        CURLOPT_SSL_VERIFYPEER => !$insecure,
+        CURLOPT_SSL_VERIFYHOST => $insecure ? 0 : 2,
+        CURLOPT_HEADERFUNCTION => function ($ch, $line) use (&$date) {
+            if (stripos($line, 'date:') === 0) {
+                $t = strtotime(trim(substr($line, 5)));
+                if ($t) $date = $t;
+            }
+            return strlen($line);
+        },
+    ]);
+    if ($method === 'POST') {
+        curl_setopt($ch, CURLOPT_POSTFIELDS, '{}');
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Authorization: Bearer ' . $token, 'Content-Type: application/json']);
+    }
+    $body = curl_exec($ch);
+    if ($body === false) {
+        $result['error'] = curl_error($ch) ?: 'Connection failed';
+    } else {
+        $result['body'] = $body;
+        $result['code'] = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        $result['type'] = (string)curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+        $result['date'] = $date;
+    }
+    curl_close($ch);
+    return $result;
+}
+
+function abss_http_error_message($code) {
+    if ($code === 401) return 'Audiobookshelf rejected the API token (401).';
+    if ($code === 403) return 'The API token is valid but not an admin token (403). Streams need an admin user.';
+    if ($code === 404) return 'Not found (404) - check the server URL.';
+    return 'Audiobookshelf returned HTTP ' . $code . '.';
+}
+
+/* userId => username map. /api/users is admin-only and not needed on every
+ * poll, so it is cached briefly. Only consulted for a session whose user is
+ * not in the online list (e.g. a backgrounded mobile app still syncing).
+ */
+function abss_username_map($force = false) {
+    if (!$force && is_readable(ABSS_USERS_CACHE) && (time() - filemtime(ABSS_USERS_CACHE)) < 300) {
+        $c = json_decode((string)@file_get_contents(ABSS_USERS_CACHE), true);
+        if (is_array($c)) return $c;
+    }
+    $r = abss_api('GET', '/api/users');
+    $map = [];
+    if ($r['code'] === 200) {
+        $j = json_decode($r['body'], true);
+        foreach (($j['users'] ?? []) as $u) {
+            if (isset($u['id'], $u['username'])) $map[$u['id']] = $u['username'];
+        }
+        @file_put_contents(ABSS_USERS_CACHE, json_encode($map), LOCK_EX);
+    }
+    return $map;
+}
+
+/* Builds the data the dashboard tile renders. */
+function abss_build_status() {
+    $cfg = abss_settings();
+    $out = ['ok' => false, 'configured' => false, 'error' => '', 'streams' => [], 'refresh' => (int)$cfg['REFRESH_SECONDS']];
+
+    if (abss_validate_url(abss_normalize_url($cfg['ABS_URL'])) !== '' || abss_token() === '') {
+        $out['error'] = 'Not configured yet.';
+        return $out;
+    }
+    $out['configured'] = true;
+
+    $r = abss_api('GET', '/api/users/online');
+    if ($r['error'] !== '') { $out['error'] = $r['error']; return $out; }
+    if ($r['code'] !== 200) { $out['error'] = abss_http_error_message($r['code']); return $out; }
+    $j = json_decode($r['body'], true);
+    if (!is_array($j)) { $out['error'] = 'Unexpected response from Audiobookshelf.'; return $out; }
+
+    $now       = $r['date'] ?? time();
+    $pausedAft = max(10, (int)$cfg['PAUSED_AFTER']);
+    $online    = [];                       // userId => user entry
+    foreach (($j['usersOnline'] ?? []) as $u) { if (isset($u['id'])) $online[$u['id']] = $u; }
+
+    $rows = [];
+    $withSession = [];
+    foreach (($j['openSessions'] ?? []) as $s) {
+        $uid = $s['userId'] ?? null;
+        if ($uid === null) continue;
+        $updated = isset($s['updatedAt']) ? (int)floor($s['updatedAt'] / 1000) : 0;
+        $age     = max(0, $now - $updated);
+        $isOnline = isset($online[$uid]);
+        // A stale session for a user who is no longer connected is just an
+        // abandoned record - not worth showing.
+        if (!$isOnline && $age > $pausedAft) continue;
+        $dur = (float)($s['duration'] ?? 0);
+        $cur = (float)($s['currentTime'] ?? 0);
+        $dev = $s['deviceInfo'] ?? [];
+        $rows[] = [
+            'user'       => $isOnline ? ($online[$uid]['username'] ?? '?') : null,
+            'user_id'    => $uid,
+            'state'      => $age <= $pausedAft ? 'listening' : 'paused',
+            'session_id' => $s['id'] ?? '',
+            'item_id'    => $s['libraryItemId'] ?? '',
+            'title'      => $s['displayTitle'] ?? '',
+            'author'     => $s['displayAuthor'] ?? '',
+            'duration'   => $dur,
+            'current'    => $cur,
+            'progress'   => $dur > 0 ? min(100, max(0, round($cur / $dur * 100, 1))) : 0,
+            'device'     => trim(($dev['deviceName'] ?? '') . (!empty($dev['clientName']) ? ' (' . $dev['clientName'] . ')' : '')),
+            'age'        => $age,
+        ];
+        $withSession[$uid] = true;
+    }
+
+    $needNames = false;
+    foreach ($rows as $row) { if ($row['user'] === null) { $needNames = true; break; } }
+    $names = $needNames ? abss_username_map() : [];
+    foreach ($rows as &$row) {
+        if ($row['user'] === null) $row['user'] = $names[$row['user_id']] ?? 'unknown user';
+    }
+    unset($row);
+
+    if ($cfg['SHOW_CONNECTED'] === 'yes') {
+        foreach ($online as $uid => $u) {
+            if (isset($withSession[$uid])) continue;
+            $rows[] = ['user' => $u['username'] ?? '?', 'user_id' => $uid, 'state' => 'connected', 'session_id' => ''];
+        }
+    }
+
+    $order = ['listening' => 0, 'paused' => 1, 'connected' => 2];
+    usort($rows, function ($a, $b) use ($order) {
+        return [$order[$a['state']], strtolower($a['user'])] <=> [$order[$b['state']], strtolower($b['user'])];
+    });
+
+    $out['ok'] = true;
+    $out['streams'] = $rows;
+    return $out;
+}
+]]>
+</INLINE>
+</FILE>
+
+<FILE Name="/usr/local/emhttp/plugins/audiobookshelf.streams/include/csrf.php" Mode="0644" SHA256="d23e4a50e2e0119153944c5f05bdc97963d3675d252d56cd669ec3fa5f6f83e3">
+<INLINE>
+<![CDATA[
+<?php
+/* Shared CSRF helper for Audiobookshelf Streams.
+ *
+ * The .page files emit the token; include/exec.php validates POSTed tokens
+ * against it. Both use this single source so they can't disagree.
+ *
+ * The token is regexed out of Unraid's state file rather than read with
+ * parse_ini_file('/var/local/emhttp/var.ini'): other keys in that file can
+ * carry values the default INI scanner rejects, which would make the whole
+ * parse fail and reject every request.
+ */
+
+function abss_csrf_token() {
+    $ini = @file_get_contents('/var/local/emhttp/var.ini');
+    if ($ini === false) return '';
+    // Unraid writes values quoted, e.g. csrf_token="ABCD1234..."
+    if (preg_match('/^\s*csrf_token\s*=\s*"?([A-Za-z0-9]+)"?/m', $ini, $m)) {
+        return $m[1];
+    }
+    return '';
+}
+]]>
+</INLINE>
+</FILE>
+
+<FILE Name="/usr/local/emhttp/plugins/audiobookshelf.streams/include/exec.php" Mode="0644" SHA256="73915ccb7b7d1bdbbab89be91740121df096b13babdaa295f6f96ae13c64fa3f">
+<INLINE>
+<![CDATA[
+<?php
+/* Audiobookshelf Streams AJAX backend.
+ *
+ * Routes (action=...):
+ *   status         GET   - who is listening / paused / connected right now
+ *   cover          GET   - proxied cover image (keeps the API token server-side)
+ *   load_settings  GET   - non-secret settings + whether a token is saved
+ *   save_settings  POST  - save settings (CSRF)
+ *   test           POST  - test a URL/token pair without saving (CSRF)
+ *   stop           POST  - close a playback session on the ABS server (CSRF)
+ *
+ * The API token is never returned to the browser.
+ */
+
+require_once __DIR__ . '/csrf.php';
+require_once __DIR__ . '/common.php';
+
+function abss_json($data, $code = 200) {
+    http_response_code($code);
+    header('Content-Type: application/json');
+    header('Cache-Control: no-store');
+    echo json_encode($data);
+    exit;
+}
+
+// Unraid's core JS appends its own csrf_token= to every $.post(); inside a
+// Dashboard tile that copy can be empty and, because PHP's $_POST keeps only
+// the LAST duplicate key, would shadow the real token. Scan the raw body for
+// every csrf_token occurrence and accept any that matches.
+function abss_csrf_ok() {
+    $expected = abss_csrf_token();
+    if ($expected === '') {
+        abss_log('csrf check failed: no token could be read from var.ini');
+        return false;
+    }
+    $raw = (string)@file_get_contents('php://input');
+    foreach (explode('&', $raw) as $pair) {
+        $eq = strpos($pair, '=');
+        if ($eq === false || substr($pair, 0, $eq) !== 'csrf_token') continue;
+        $val = urldecode(substr($pair, $eq + 1));
+        if ($val !== '' && hash_equals($expected, $val)) return true;
+    }
+    $sent = isset($_POST['csrf_token']) ? (string)$_POST['csrf_token'] : '';
+    if ($sent !== '' && hash_equals($expected, $sent)) return true;
+    abss_log('csrf check failed: no posted csrf_token matched');
+    return false;
+}
+
+function abss_require_post() {
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') abss_json(['ok' => false, 'error' => 'POST required'], 405);
+    if (!abss_csrf_ok()) abss_json(['ok' => false, 'error' => 'CSRF check failed - reload the page and try again.'], 403);
+}
+
+$action = $_GET['action'] ?? $_POST['action'] ?? '';
+
+switch ($action) {
+    case 'status':
+        abss_json(abss_build_status());
+
+    case 'cover':
+        $id = $_GET['id'] ?? '';
+        if (!preg_match('/^[A-Za-z0-9_-]{1,64}$/', $id)) { http_response_code(400); exit; }
+        $r = abss_api('GET', '/api/items/' . $id . '/cover?width=160&format=webp');
+        if ($r['error'] !== '' || $r['code'] !== 200 || stripos($r['type'], 'image/') !== 0) {
+            http_response_code(404);
+            exit;
+        }
+        header('Content-Type: ' . $r['type']);
+        header('Cache-Control: private, max-age=600');
+        echo $r['body'];
+        exit;
+
+    case 'load_settings':
+        $s = abss_settings();
+        $s['TOKEN_SET'] = abss_token() !== '' ? 'yes' : 'no';
+        abss_json(['ok' => true, 'settings' => $s]);
+
+    case 'save_settings':
+        abss_require_post();
+        $url = abss_normalize_url((string)($_POST['ABS_URL'] ?? ''));
+        // An empty URL is allowed on save (lets the user clear the config);
+        // anything non-empty must be a valid http(s) URL.
+        if ($url !== '' && ($err = abss_validate_url($url))) abss_json(['ok' => false, 'error' => $err]);
+        $yn = function ($k) { return (($_POST[$k] ?? '') === 'yes') ? 'yes' : 'no'; };
+        $refresh = (int)($_POST['REFRESH_SECONDS'] ?? 10);
+        $refresh = min(300, max(3, $refresh));
+        $paused = (int)($_POST['PAUSED_AFTER'] ?? 45);
+        $paused = min(600, max(10, $paused));
+        $ok = abss_save_settings([
+            'ABS_URL'         => $url,
+            'INSECURE_TLS'    => $yn('INSECURE_TLS'),
+            'REFRESH_SECONDS' => (string)$refresh,
+            'PAUSED_AFTER'    => (string)$paused,
+            'SHOW_CONNECTED'  => $yn('SHOW_CONNECTED'),
+            'SHOW_DASHBOARD'  => $yn('SHOW_DASHBOARD'),
+        ]);
+        // A blank token field means "keep the saved one"; 'CLEAR_TOKEN' removes it.
+        $token = trim((string)($_POST['ABS_TOKEN'] ?? ''));
+        if ($ok && $token !== '') {
+            if (preg_match('/[\s"\']/', $token)) abss_json(['ok' => false, 'error' => 'The token contains invalid characters.']);
+            $ok = abss_save_token($token);
+        } elseif ($ok && ($_POST['CLEAR_TOKEN'] ?? '') === 'yes') {
+            @unlink(ABSS_TOKEN);
+        }
+        @unlink(ABSS_USERS_CACHE);
+        if (!$ok) {
+            abss_log('failed to write settings under ' . ABSS_CFG_DIR);
+            abss_json(['ok' => false, 'error' => 'Could not write settings to the flash drive.']);
+        }
+        abss_json(['ok' => true]);
+
+    case 'test':
+        abss_require_post();
+        $url = abss_normalize_url((string)($_POST['ABS_URL'] ?? ''));
+        if ($err = abss_validate_url($url)) abss_json(['ok' => false, 'error' => $err]);
+        $token = trim((string)($_POST['ABS_TOKEN'] ?? ''));
+        if ($token === '') $token = abss_token();
+        $r = abss_api('GET', '/api/users/online', [
+            'url' => $url, 'token' => $token, 'insecure' => (($_POST['INSECURE_TLS'] ?? '') === 'yes'),
+        ]);
+        if ($r['error'] !== '') abss_json(['ok' => false, 'error' => $r['error']]);
+        if ($r['code'] !== 200) abss_json(['ok' => false, 'error' => abss_http_error_message($r['code'])]);
+        $j = json_decode($r['body'], true);
+        abss_json(['ok' => true, 'online' => is_array($j['usersOnline'] ?? null) ? count($j['usersOnline']) : 0]);
+
+    case 'stop':
+        abss_require_post();
+        $sid = (string)($_POST['session_id'] ?? '');
+        if (!preg_match('/^[A-Za-z0-9_-]{1,64}$/', $sid)) abss_json(['ok' => false, 'error' => 'Invalid session id.'], 400);
+        $r = abss_api('POST', '/api/session/' . $sid . '/close');
+        if ($r['error'] !== '') abss_json(['ok' => false, 'error' => $r['error']]);
+        if ($r['code'] === 404) abss_json(['ok' => true, 'note' => 'Session was already closed.']);
+        if ($r['code'] !== 200) {
+            abss_log('stop session ' . $sid . ' failed: HTTP ' . $r['code']);
+            abss_json(['ok' => false, 'error' => abss_http_error_message($r['code'])]);
+        }
+        abss_json(['ok' => true]);
+
+    default:
+        abss_json(['ok' => false, 'error' => 'Unknown action'], 400);
+}
+]]>
+</INLINE>
+</FILE>
+
+
+
+<!-- POST-INSTALL SCRIPT -->
+<FILE Run="/bin/bash">
+<INLINE>
+<![CDATA[
+echo ""
+echo "-----------------------------------------------------------"
+echo " audiobookshelf.streams has been installed."
+echo " Version: 2026.11.19"
+echo ""
+echo " Add your server URL and admin API token under"
+echo " Settings > Utilities > Audiobookshelf Streams."
+echo "-----------------------------------------------------------"
+echo ""
+]]>
+</INLINE>
+</FILE>
+
+<!-- REMOVE SCRIPT -->
+<FILE Run="/bin/bash" Method="remove">
+<INLINE>
+<![CDATA[
+rm -rf /usr/local/emhttp/plugins/audiobookshelf.streams
+rm -rf /boot/config/plugins/audiobookshelf.streams
+rm -f /tmp/audiobookshelf.streams.users.json
+]]>
+</INLINE>
+</FILE>
+
+</PLUGIN>

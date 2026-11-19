@@ -1,0 +1,134 @@
+Menu="Utilities"
+Title="Audiobookshelf Streams"
+Icon="headphones"
+---
+<?php
+require_once '/usr/local/emhttp/plugins/audiobookshelf.streams/include/csrf.php';
+$abss_csrf = function_exists('abss_csrf_token') ? abss_csrf_token() : '';
+?>
+<style>
+.abss-card { max-width: 680px; }
+.abss-card h3 { margin: 0 0 12px 0; padding-bottom: 8px; border-bottom: 2px solid var(--border, #ddd); }
+.abss-field { margin-bottom: 14px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.abss-field > label.abss-lbl { width: 210px; flex: 0 0 210px; }
+.abss-field input[type=text], .abss-field input[type=password], .abss-field input[type=number] { width: 340px; max-width: 100%; }
+.abss-help { font-size: 0.9em; color: var(--text-secondary, #888); margin: 2px 0 14px 0; }
+#abss-status { margin-left: 12px; font-size: 0.9em; }
+#abss-status.ok { color: #2e9b4e; }
+#abss-status.err { color: #c0392b; }
+</style>
+
+<div class="abss-card">
+  <h3>Audiobookshelf server</h3>
+  <div class="abss-field">
+    <label class="abss-lbl" for="abss-url">Server URL</label>
+    <input type="text" id="abss-url" placeholder="http://192.168.1.10:13378" autocomplete="off">
+  </div>
+  <div class="abss-field">
+    <label class="abss-lbl" for="abss-token">API token</label>
+    <input type="password" id="abss-token" autocomplete="new-password" placeholder="">
+    <label><input type="checkbox" id="abss-clear-token"> Remove saved token</label>
+  </div>
+  <p class="abss-help">
+    Use an <strong>admin</strong> user's API token (Audiobookshelf &rarr; Config &rarr; Users &rarr; your user &rarr; API token).
+    The token is stored on the flash drive and is never sent to your browser; leave the field blank to keep the saved one.
+  </p>
+  <div class="abss-field">
+    <label><input type="checkbox" id="abss-insecure"> Allow self-signed / invalid HTTPS certificates</label>
+  </div>
+
+  <h3>Display</h3>
+  <div class="abss-field">
+    <label class="abss-lbl" for="abss-refresh">Refresh every (seconds)</label>
+    <input type="number" id="abss-refresh" min="3" max="300" style="width:90px">
+  </div>
+  <div class="abss-field">
+    <label class="abss-lbl" for="abss-paused">Paused after (seconds)</label>
+    <input type="number" id="abss-paused" min="10" max="600" style="width:90px">
+  </div>
+  <p class="abss-help">
+    Audiobookshelf has no explicit "paused" flag. A player syncs its position every few seconds while playing, so a
+    session that has not synced for this long is shown as <em>Paused</em>.
+  </p>
+  <div class="abss-field">
+    <label><input type="checkbox" id="abss-connected"> Also list users who are connected but not playing</label>
+  </div>
+  <div class="abss-field">
+    <label><input type="checkbox" id="abss-dashboard"> Show the Audiobookshelf Streams tile on the Dashboard</label>
+  </div>
+
+  <div class="abss-field">
+    <button type="button" class="btn" id="abss-save">Apply</button>
+    <button type="button" class="btn" id="abss-test">Test connection</button>
+    <span id="abss-status"></span>
+  </div>
+</div>
+
+<script>
+(function() {
+  var EXEC = '/plugins/audiobookshelf.streams/include/exec.php';
+  var CSRF = <?= json_encode($abss_csrf) ?>;
+
+  function $id(id) { return document.getElementById(id); }
+  function yn(id) { return $id(id).checked ? 'yes' : 'no'; }
+  function setStatus(text, cls) {
+    var s = $id('abss-status');
+    s.textContent = text;
+    s.className = cls || '';
+  }
+  function errText(xhr) {
+    try { return JSON.parse(xhr.responseText).error; } catch (e) { return 'request failed'; }
+  }
+  function formData(extra) {
+    var d = {
+      ABS_URL: $id('abss-url').value.trim(),
+      ABS_TOKEN: $id('abss-token').value.trim(),
+      INSECURE_TLS: yn('abss-insecure'),
+      REFRESH_SECONDS: $id('abss-refresh').value,
+      PAUSED_AFTER: $id('abss-paused').value,
+      SHOW_CONNECTED: yn('abss-connected'),
+      SHOW_DASHBOARD: yn('abss-dashboard'),
+      CLEAR_TOKEN: yn('abss-clear-token'),
+      csrf_token: CSRF
+    };
+    for (var k in extra) d[k] = extra[k];
+    return d;
+  }
+
+  function load() {
+    $.getJSON(EXEC, { action: 'load_settings' }).done(function(r) {
+      if (!r.ok) return;
+      var s = r.settings;
+      $id('abss-url').value = s.ABS_URL;
+      $id('abss-token').placeholder = s.TOKEN_SET === 'yes' ? '•••••••• (saved)' : 'paste token';
+      $id('abss-insecure').checked = s.INSECURE_TLS === 'yes';
+      $id('abss-refresh').value = s.REFRESH_SECONDS;
+      $id('abss-paused').value = s.PAUSED_AFTER;
+      $id('abss-connected').checked = s.SHOW_CONNECTED === 'yes';
+      $id('abss-dashboard').checked = s.SHOW_DASHBOARD === 'yes';
+    });
+  }
+
+  $id('abss-save').addEventListener('click', function() {
+    setStatus('Saving…');
+    $.post(EXEC, formData({ action: 'save_settings' }), null, 'json')
+      .done(function(r) {
+        if (r.ok) { setStatus('Saved.', 'ok'); $id('abss-token').value = ''; $id('abss-clear-token').checked = false; load(); }
+        else setStatus(r.error || 'Save failed.', 'err');
+      })
+      .fail(function(xhr) { setStatus(errText(xhr), 'err'); });
+  });
+
+  $id('abss-test').addEventListener('click', function() {
+    setStatus('Testing…');
+    $.post(EXEC, formData({ action: 'test' }), null, 'json')
+      .done(function(r) {
+        if (r.ok) setStatus('Connected — ' + r.online + ' user' + (r.online === 1 ? '' : 's') + ' online right now.', 'ok');
+        else setStatus(r.error || 'Test failed.', 'err');
+      })
+      .fail(function(xhr) { setStatus(errText(xhr), 'err'); });
+  });
+
+  if (window.jQuery) $(load); else document.addEventListener('DOMContentLoaded', load);
+})();
+</script>
