@@ -3,7 +3,7 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "audiobookshelf.streams">
 <!ENTITY author    "Hunter Clipper">
-<!ENTITY version   "2026.11.19b">
+<!ENTITY version   "2026.11.19c">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/Hunter-Clipper/audiobookshelf-streams/main/audiobookshelf.streams.plg">
 ]>
 
@@ -11,6 +11,12 @@
 
 <CHANGES>
 <![CDATA[
+###2026.11.19c
+- Removed the stop-session button. It called an Audiobookshelf endpoint
+  that closes the session on the server but cannot stop the player, and
+  Audiobookshelf can exit if that call errors while a client is still
+  syncing. The plugin is now read-only.
+
 ###2026.11.19b
 - Corrected the name capitalization to "Audiobookshelf Streams".
 
@@ -42,7 +48,7 @@ Unraid Dashboard.
 echo ""
 echo "-----------------------------------------------------------"
 echo " audiobookshelf.streams has been installed."
-echo " Version: 2026.11.19b"
+echo " Version: 2026.11.19c"
 echo ""
 echo " Add your server URL and admin API token under"
 echo " Settings > Utilities > Audiobookshelf Streams."

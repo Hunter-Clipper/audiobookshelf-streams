@@ -3,7 +3,7 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "audiobookshelf.streams">
 <!ENTITY author    "Hunter Clipper">
-<!ENTITY version   "2026.11.19b">
+<!ENTITY version   "2026.11.19c">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/Hunter-Clipper/audiobookshelf-streams/main/audiobookshelf.streams.plg">
 ]>
 
@@ -11,6 +11,12 @@
 
 <CHANGES>
 <![CDATA[
+###2026.11.19c
+- Removed the stop-session button. It called an Audiobookshelf endpoint
+  that closes the session on the server but cannot stop the player, and
+  Audiobookshelf can exit if that call errors while a client is still
+  syncing. The plugin is now read-only.
+
 ###2026.11.19b
 - Corrected the name capitalization to "Audiobookshelf Streams".
 
@@ -174,7 +180,7 @@ $abss_csrf = function_exists('abss_csrf_token') ? abss_csrf_token() : '';
 </INLINE>
 </FILE>
 
-<FILE Name="/usr/local/emhttp/plugins/audiobookshelf.streams/AudiobookshelfStreamsDashboard.page" Mode="0644" SHA256="2b0544565b4129f53b389185914c984fde7f4ccf0ffabab011724c2d33d807bb">
+<FILE Name="/usr/local/emhttp/plugins/audiobookshelf.streams/AudiobookshelfStreamsDashboard.page" Mode="0644" SHA256="4c3a9d13f1b1a65852fcd45449ba348d9edc4d085c85543b1432519f2728bdc5">
 <INLINE>
 <![CDATA[
 Menu="Dashboard:61"
@@ -183,9 +189,7 @@ Icon="headphones"
 ---
 <?php
 $abss_plugin = 'audiobookshelf.streams';
-require_once '/usr/local/emhttp/plugins/audiobookshelf.streams/include/csrf.php';
 require_once '/usr/local/emhttp/plugins/audiobookshelf.streams/include/common.php';
-$abss_csrf = function_exists('abss_csrf_token') ? abss_csrf_token() : '';
 $abss_refresh = (int)(abss_settings()['REFRESH_SECONDS']);
 
 $mytiles[$abss_plugin]['column2'] = <<<'EOT'
@@ -244,8 +248,6 @@ EOT;
 #abss-tile .abss-pill.listening { background: #2e9b4e; }
 #abss-tile .abss-pill.paused { background: #d68a1a; }
 #abss-tile .abss-pill.connected { background: #7f8c8d; }
-#abss-tile .abss-stop { margin-left: auto; cursor: pointer; opacity: .65; background: none; border: 0; color: inherit; padding: 2px 4px; }
-#abss-tile .abss-stop:hover { opacity: 1; color: #c0392b; }
 #abss-tile .abss-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #abss-tile .abss-bar { height: 5px; border-radius: 3px; background: rgba(128,128,128,.3); margin: 4px 0 2px 0; overflow: hidden; }
 #abss-tile .abss-bar > span { display: block; height: 100%; background: #2e9b4e; }
@@ -256,7 +258,6 @@ EOT;
 <script>
 (function() {
   var EXEC = '/plugins/audiobookshelf.streams/include/exec.php';
-  var CSRF = <?= json_encode($abss_csrf) ?>;
   var refreshMs = Math.max(3, <?= $abss_refresh ?: 10 ?>) * 1000;
   var timer = null, busy = false;
 
@@ -288,14 +289,6 @@ EOT;
     var top = el('div', 'abss-top');
     top.appendChild(el('span', 'abss-user', s.user));
     top.appendChild(el('span', 'abss-pill ' + s.state, LABELS[s.state] || s.state));
-    if (hasSession) {
-      var stop = el('button', 'abss-stop');
-      stop.type = 'button';
-      stop.title = 'Stop this session';
-      stop.appendChild(el('i', 'fa fa-fw fa-stop-circle'));
-      stop.addEventListener('click', function() { stopSession(s); });
-      top.appendChild(stop);
-    }
     body.appendChild(top);
     if (hasSession) {
       var t = s.title + (s.author ? ' — ' + s.author : '');
@@ -352,20 +345,6 @@ EOT;
       .always(function() { busy = false; });
   }
 
-  function stopSession(s) {
-    if (!confirm('Stop ' + s.user + '’s session of “' + s.title + '”?\n\nThis closes the session on the Audiobookshelf server. A player that is still running may start a new one.')) return;
-    $.post(EXEC, { action: 'stop', session_id: s.session_id, csrf_token: CSRF }, null, 'json')
-      .done(function(r) {
-        if (!r.ok) alert('Could not stop the session: ' + (r.error || 'unknown error'));
-        poll();
-      })
-      .fail(function(xhr) {
-        var m = 'request failed';
-        try { m = JSON.parse(xhr.responseText).error || m; } catch (e) {}
-        alert('Could not stop the session: ' + m);
-      });
-  }
-
   function start() {
     poll();
     timer = setInterval(poll, refreshMs);
@@ -378,12 +357,12 @@ EOT;
 </INLINE>
 </FILE>
 
-<FILE Name="/usr/local/emhttp/plugins/audiobookshelf.streams/README.md" Mode="0644" SHA256="d814c0960a12792831061b0a3e1834ba423545bb80f9dff4769fa7484b412d71">
+<FILE Name="/usr/local/emhttp/plugins/audiobookshelf.streams/README.md" Mode="0644" SHA256="2db1c570b64ad1926e23c39477cbf591c7d7c672d50373bc2661d3b24ac7245a">
 <INLINE>
 <![CDATA[
 **Audiobookshelf Streams**
 
-See who is listening on your Audiobookshelf server, right from the Unraid Dashboard. Shows each user as *Listening*, *Paused* or *Connected*, with the book cover, title and author, a progress bar and the device in use. Includes a stop-session button and auto-refresh. Configure the server URL and an admin API token under Settings &rarr; Utilities &rarr; Audiobookshelf Streams.
+See who is listening on your Audiobookshelf server, right from the Unraid Dashboard. Shows each user as *Listening*, *Paused* or *Connected*, with the book cover, title and author, a progress bar and the device in use. Includes auto-refresh. Configure the server URL and an admin API token under Settings &rarr; Utilities &rarr; Audiobookshelf Streams.
 ]]>
 </INLINE>
 </FILE>
@@ -658,7 +637,7 @@ function abss_csrf_token() {
 </INLINE>
 </FILE>
 
-<FILE Name="/usr/local/emhttp/plugins/audiobookshelf.streams/include/exec.php" Mode="0644" SHA256="73915ccb7b7d1bdbbab89be91740121df096b13babdaa295f6f96ae13c64fa3f">
+<FILE Name="/usr/local/emhttp/plugins/audiobookshelf.streams/include/exec.php" Mode="0644" SHA256="f51f6f75e436db491a6499f5bebcf9d22e33ddc05bf3f0e5045cb00b271b39d0">
 <INLINE>
 <![CDATA[
 <?php
@@ -670,7 +649,6 @@ function abss_csrf_token() {
  *   load_settings  GET   - non-secret settings + whether a token is saved
  *   save_settings  POST  - save settings (CSRF)
  *   test           POST  - test a URL/token pair without saving (CSRF)
- *   stop           POST  - close a playback session on the ABS server (CSRF)
  *
  * The API token is never returned to the browser.
  */
@@ -786,19 +764,6 @@ switch ($action) {
         $j = json_decode($r['body'], true);
         abss_json(['ok' => true, 'online' => is_array($j['usersOnline'] ?? null) ? count($j['usersOnline']) : 0]);
 
-    case 'stop':
-        abss_require_post();
-        $sid = (string)($_POST['session_id'] ?? '');
-        if (!preg_match('/^[A-Za-z0-9_-]{1,64}$/', $sid)) abss_json(['ok' => false, 'error' => 'Invalid session id.'], 400);
-        $r = abss_api('POST', '/api/session/' . $sid . '/close');
-        if ($r['error'] !== '') abss_json(['ok' => false, 'error' => $r['error']]);
-        if ($r['code'] === 404) abss_json(['ok' => true, 'note' => 'Session was already closed.']);
-        if ($r['code'] !== 200) {
-            abss_log('stop session ' . $sid . ' failed: HTTP ' . $r['code']);
-            abss_json(['ok' => false, 'error' => abss_http_error_message($r['code'])]);
-        }
-        abss_json(['ok' => true]);
-
     default:
         abss_json(['ok' => false, 'error' => 'Unknown action'], 400);
 }
@@ -815,7 +780,7 @@ switch ($action) {
 echo ""
 echo "-----------------------------------------------------------"
 echo " audiobookshelf.streams has been installed."
-echo " Version: 2026.11.19b"
+echo " Version: 2026.11.19c"
 echo ""
 echo " Add your server URL and admin API token under"
 echo " Settings > Utilities > Audiobookshelf Streams."

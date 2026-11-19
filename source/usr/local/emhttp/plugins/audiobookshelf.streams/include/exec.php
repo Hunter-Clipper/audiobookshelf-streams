@@ -7,7 +7,6 @@
  *   load_settings  GET   - non-secret settings + whether a token is saved
  *   save_settings  POST  - save settings (CSRF)
  *   test           POST  - test a URL/token pair without saving (CSRF)
- *   stop           POST  - close a playback session on the ABS server (CSRF)
  *
  * The API token is never returned to the browser.
  */
@@ -122,19 +121,6 @@ switch ($action) {
         if ($r['code'] !== 200) abss_json(['ok' => false, 'error' => abss_http_error_message($r['code'])]);
         $j = json_decode($r['body'], true);
         abss_json(['ok' => true, 'online' => is_array($j['usersOnline'] ?? null) ? count($j['usersOnline']) : 0]);
-
-    case 'stop':
-        abss_require_post();
-        $sid = (string)($_POST['session_id'] ?? '');
-        if (!preg_match('/^[A-Za-z0-9_-]{1,64}$/', $sid)) abss_json(['ok' => false, 'error' => 'Invalid session id.'], 400);
-        $r = abss_api('POST', '/api/session/' . $sid . '/close');
-        if ($r['error'] !== '') abss_json(['ok' => false, 'error' => $r['error']]);
-        if ($r['code'] === 404) abss_json(['ok' => true, 'note' => 'Session was already closed.']);
-        if ($r['code'] !== 200) {
-            abss_log('stop session ' . $sid . ' failed: HTTP ' . $r['code']);
-            abss_json(['ok' => false, 'error' => abss_http_error_message($r['code'])]);
-        }
-        abss_json(['ok' => true]);
 
     default:
         abss_json(['ok' => false, 'error' => 'Unknown action'], 400);

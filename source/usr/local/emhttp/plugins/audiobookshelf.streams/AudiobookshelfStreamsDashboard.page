@@ -4,9 +4,7 @@ Icon="headphones"
 ---
 <?php
 $abss_plugin = 'audiobookshelf.streams';
-require_once '/usr/local/emhttp/plugins/audiobookshelf.streams/include/csrf.php';
 require_once '/usr/local/emhttp/plugins/audiobookshelf.streams/include/common.php';
-$abss_csrf = function_exists('abss_csrf_token') ? abss_csrf_token() : '';
 $abss_refresh = (int)(abss_settings()['REFRESH_SECONDS']);
 
 $mytiles[$abss_plugin]['column2'] = <<<'EOT'
@@ -65,8 +63,6 @@ EOT;
 #abss-tile .abss-pill.listening { background: #2e9b4e; }
 #abss-tile .abss-pill.paused { background: #d68a1a; }
 #abss-tile .abss-pill.connected { background: #7f8c8d; }
-#abss-tile .abss-stop { margin-left: auto; cursor: pointer; opacity: .65; background: none; border: 0; color: inherit; padding: 2px 4px; }
-#abss-tile .abss-stop:hover { opacity: 1; color: #c0392b; }
 #abss-tile .abss-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #abss-tile .abss-bar { height: 5px; border-radius: 3px; background: rgba(128,128,128,.3); margin: 4px 0 2px 0; overflow: hidden; }
 #abss-tile .abss-bar > span { display: block; height: 100%; background: #2e9b4e; }
@@ -77,7 +73,6 @@ EOT;
 <script>
 (function() {
   var EXEC = '/plugins/audiobookshelf.streams/include/exec.php';
-  var CSRF = <?= json_encode($abss_csrf) ?>;
   var refreshMs = Math.max(3, <?= $abss_refresh ?: 10 ?>) * 1000;
   var timer = null, busy = false;
 
@@ -109,14 +104,6 @@ EOT;
     var top = el('div', 'abss-top');
     top.appendChild(el('span', 'abss-user', s.user));
     top.appendChild(el('span', 'abss-pill ' + s.state, LABELS[s.state] || s.state));
-    if (hasSession) {
-      var stop = el('button', 'abss-stop');
-      stop.type = 'button';
-      stop.title = 'Stop this session';
-      stop.appendChild(el('i', 'fa fa-fw fa-stop-circle'));
-      stop.addEventListener('click', function() { stopSession(s); });
-      top.appendChild(stop);
-    }
     body.appendChild(top);
     if (hasSession) {
       var t = s.title + (s.author ? ' — ' + s.author : '');
@@ -171,20 +158,6 @@ EOT;
         render({ ok: false, configured: true, error: 'Could not reach the Unraid backend.' });
       })
       .always(function() { busy = false; });
-  }
-
-  function stopSession(s) {
-    if (!confirm('Stop ' + s.user + '’s session of “' + s.title + '”?\n\nThis closes the session on the Audiobookshelf server. A player that is still running may start a new one.')) return;
-    $.post(EXEC, { action: 'stop', session_id: s.session_id, csrf_token: CSRF }, null, 'json')
-      .done(function(r) {
-        if (!r.ok) alert('Could not stop the session: ' + (r.error || 'unknown error'));
-        poll();
-      })
-      .fail(function(xhr) {
-        var m = 'request failed';
-        try { m = JSON.parse(xhr.responseText).error || m; } catch (e) {}
-        alert('Could not stop the session: ' + m);
-      });
   }
 
   function start() {

@@ -9,5 +9,5 @@
   <Category>Tools:Utilities</Category>
   <License>MIT</License>
   <MinVer>6.12.0</MinVer>
-  <Overview>See who is listening on your Audiobookshelf server right from the Unraid Dashboard. Shows each user as Listening, Paused or Connected, with the book cover, title and author, a progress bar and the device in use. Includes a stop-session button and auto-refresh. Requires an admin API token from your Audiobookshelf server; the token stays on the server and is never sent to the browser.</Overview>
+  <Overview>See who is listening on your Audiobookshelf server right from the Unraid Dashboard. Shows each user as Listening, Paused or Connected, with the book cover, title and author, a progress bar and the device in use. Includes auto-refresh. Requires an admin API token from your Audiobookshelf server; the token stays on the server and is never sent to the browser.</Overview>
 </Plugin>

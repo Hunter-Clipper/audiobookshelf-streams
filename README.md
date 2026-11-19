@@ -9,7 +9,6 @@ For each user you see:
 | **Status** | `Listening`, `Paused` or `Connected` |
 | **What** | cover, title and author |
 | **Where** | progress bar, time left, device / client |
-| **Actions** | stop-session button |
 
 The tile refreshes automatically (default every 10 s) and pauses polling while the browser tab is hidden.
 
@@ -37,10 +36,6 @@ Audiobookshelf does not expose an explicit "paused" flag, so the plugin infers i
 - **Paused** — the user is online with an open session that has not synced for longer than that.
 
 Session ages are measured against the Audiobookshelf server's own clock (from its HTTP `Date` header), so clock drift between Unraid and the ABS host doesn't matter.
-
-## Stop button
-
-The stop button calls `POST /api/session/:id/close` on your server. That ends the session on the server; it **cannot** force a player app to stop. A client that is still playing may open a new session on its next sync.
 
 ## Security
 
