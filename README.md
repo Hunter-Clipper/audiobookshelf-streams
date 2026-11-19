@@ -1,6 +1,6 @@
-# Audiobookshelf Streams
+# AudioBookShelf Streams
 
-An Unraid plugin that shows **who is listening on your [Audiobookshelf](https://www.audiobookshelf.org/) server** right now, as a tile on the Unraid Dashboard. A spin-off of the idea behind *Plex Streams* by dorgan, built for Audiobookshelf.
+An Unraid plugin that shows **who is listening on your [Audiobookshelf](https://www.audiobookshelf.org/) server** right now, as a tile on the Unraid Dashboard.
 
 For each user you see:
 
@@ -21,7 +21,7 @@ In Unraid: **Plugins → Install Plugin**, paste:
 https://raw.githubusercontent.com/Hunter-Clipper/audiobookshelf-streams/main/audiobookshelf.streams.plg
 ```
 
-Then open **Settings → Utilities → Audiobookshelf Streams** and enter:
+Then open **Settings → Utilities → AudioBookShelf Streams** and enter:
 
 1. **Server URL**, e.g. `http://192.168.1.10:13378`
 2. **API token** of an **admin** user (Audiobookshelf → Config → Users → your user → API token)
@@ -66,6 +66,6 @@ Edit files under `source/`, bump `<!ENTITY version>` in the template, add a chan
 
 Commit the regenerated `.plg` with the change. CI runs `verify.sh` on every push and PR.
 
-## Credits & license
+## License
 
-Inspired by *Plex Streams (Official)* by dorgan. No code is shared with it. MIT licensed — see [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE).

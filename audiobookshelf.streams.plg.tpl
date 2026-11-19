@@ -3,7 +3,7 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "audiobookshelf.streams">
 <!ENTITY author    "Hunter Clipper">
-<!ENTITY version   "2026.11.19">
+<!ENTITY version   "2026.11.19a">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/Hunter-Clipper/audiobookshelf-streams/main/audiobookshelf.streams.plg">
 ]>
 
@@ -11,19 +11,23 @@
 
 <CHANGES>
 <![CDATA[
+###2026.11.19a
+- Plugin now shows as "AudioBookShelf Streams" with a description on the
+  Plugins page.
+
 ###2026.11.19
 - Initial release. Dashboard tile showing which Audiobookshelf users are
   Listening, Paused or Connected, with cover, title/author, progress bar,
   device, a stop-session button and auto-refresh. Settings under
-  Settings > Utilities > Audiobookshelf Streams (server URL, admin API token,
+  Settings > Utilities > AudioBookShelf Streams (server URL, admin API token,
   refresh interval, paused threshold, self-signed TLS option, Test connection).
 ]]>
 </CHANGES>
 
 <!--
 Copyright 2026, Hunter Clipper
-Audiobookshelf Streams - see who is listening on Audiobookshelf from the
-Unraid Dashboard. Inspired by the Plex Streams plugin by dorgan.
+AudioBookShelf Streams - see who is listening on AudioBookShelf from the
+Unraid Dashboard.
 -->
 
 {{FILES}}
@@ -35,10 +39,10 @@ Unraid Dashboard. Inspired by the Plex Streams plugin by dorgan.
 echo ""
 echo "-----------------------------------------------------------"
 echo " audiobookshelf.streams has been installed."
-echo " Version: 2026.11.19"
+echo " Version: 2026.11.19a"
 echo ""
 echo " Add your server URL and admin API token under"
-echo " Settings > Utilities > Audiobookshelf Streams."
+echo " Settings > Utilities > AudioBookShelf Streams."
 echo "-----------------------------------------------------------"
 echo ""
 ]]>

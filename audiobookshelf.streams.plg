@@ -3,7 +3,7 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "audiobookshelf.streams">
 <!ENTITY author    "Hunter Clipper">
-<!ENTITY version   "2026.11.19">
+<!ENTITY version   "2026.11.19a">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/Hunter-Clipper/audiobookshelf-streams/main/audiobookshelf.streams.plg">
 ]>
 
@@ -11,26 +11,30 @@
 
 <CHANGES>
 <![CDATA[
+###2026.11.19a
+- Plugin now shows as "AudioBookShelf Streams" with a description on the
+  Plugins page.
+
 ###2026.11.19
 - Initial release. Dashboard tile showing which Audiobookshelf users are
   Listening, Paused or Connected, with cover, title/author, progress bar,
   device, a stop-session button and auto-refresh. Settings under
-  Settings > Utilities > Audiobookshelf Streams (server URL, admin API token,
+  Settings > Utilities > AudioBookShelf Streams (server URL, admin API token,
   refresh interval, paused threshold, self-signed TLS option, Test connection).
 ]]>
 </CHANGES>
 
 <!--
 Copyright 2026, Hunter Clipper
-Audiobookshelf Streams - see who is listening on Audiobookshelf from the
-Unraid Dashboard. Inspired by the Plex Streams plugin by dorgan.
+AudioBookShelf Streams - see who is listening on AudioBookShelf from the
+Unraid Dashboard.
 -->
 
-<FILE Name="/usr/local/emhttp/plugins/audiobookshelf.streams/AudiobookshelfStreams.page" Mode="0644" SHA256="fbdfb9c616ad7fba07f14949670de1efff3afe52fd89ece3b5857efb11310633">
+<FILE Name="/usr/local/emhttp/plugins/audiobookshelf.streams/AudiobookshelfStreams.page" Mode="0644" SHA256="def50b2a9416971d17142f8725bd409d3dc0a9895ad815a1973c19e71b3b7641">
 <INLINE>
 <![CDATA[
 Menu="Utilities"
-Title="Audiobookshelf Streams"
+Title="AudioBookShelf Streams"
 Icon="headphones"
 ---
 <?php
@@ -85,7 +89,7 @@ $abss_csrf = function_exists('abss_csrf_token') ? abss_csrf_token() : '';
     <label><input type="checkbox" id="abss-connected"> Also list users who are connected but not playing</label>
   </div>
   <div class="abss-field">
-    <label><input type="checkbox" id="abss-dashboard"> Show the Audiobookshelf Streams tile on the Dashboard</label>
+    <label><input type="checkbox" id="abss-dashboard"> Show the AudioBookShelf Streams tile on the Dashboard</label>
   </div>
 
   <div class="abss-field">
@@ -167,7 +171,7 @@ $abss_csrf = function_exists('abss_csrf_token') ? abss_csrf_token() : '';
 </INLINE>
 </FILE>
 
-<FILE Name="/usr/local/emhttp/plugins/audiobookshelf.streams/AudiobookshelfStreamsDashboard.page" Mode="0644" SHA256="2b0544565b4129f53b389185914c984fde7f4ccf0ffabab011724c2d33d807bb">
+<FILE Name="/usr/local/emhttp/plugins/audiobookshelf.streams/AudiobookshelfStreamsDashboard.page" Mode="0644" SHA256="2baf50fdbbe6279b4a3acb3e7a70c861042b78c45abcd67343ce2933f2a93bbf">
 <INLINE>
 <![CDATA[
 Menu="Dashboard:61"
@@ -182,18 +186,18 @@ $abss_csrf = function_exists('abss_csrf_token') ? abss_csrf_token() : '';
 $abss_refresh = (int)(abss_settings()['REFRESH_SECONDS']);
 
 $mytiles[$abss_plugin]['column2'] = <<<'EOT'
-<tbody title="_(Who is listening on Audiobookshelf)_">
+<tbody title="_(Who is listening on AudioBookShelf)_">
 <tr><td>
   <div class="tile-header" id="abss-dashboard-card">
     <div class="tile-header-left">
       <i class="fa fa-fw fa-headphones f32"></i>
       <div class="section">
-        <h3 class="tile-header-main" id="abss-dashboard-title">_(Audiobookshelf Streams)_</h3>
+        <h3 class="tile-header-main" id="abss-dashboard-title">_(AudioBookShelf Streams)_</h3>
       </div>
     </div>
     <div class="tile-header-right">
       <div class="tile-header-right-controls">
-        <a href="/Utilities/AudiobookshelfStreams" title="_(Audiobookshelf Streams settings)_"><i class="fa fa-fw fa-cog control"></i></a>
+        <a href="/Utilities/AudiobookshelfStreams" title="_(AudioBookShelf Streams settings)_"><i class="fa fa-fw fa-cog control"></i></a>
       </div>
     </div>
   </div>
@@ -367,6 +371,16 @@ EOT;
   if (window.jQuery) $(start); else document.addEventListener('DOMContentLoaded', start);
 })();
 </script>
+]]>
+</INLINE>
+</FILE>
+
+<FILE Name="/usr/local/emhttp/plugins/audiobookshelf.streams/README.md" Mode="0644" SHA256="9a2c5dd9b5e877bb278151cdc7f2abf47a2c20e79fd798623f0db6f1fe0ee626">
+<INLINE>
+<![CDATA[
+**AudioBookShelf Streams**
+
+See who is listening on your AudioBookShelf server, right from the Unraid Dashboard. Shows each user as *Listening*, *Paused* or *Connected*, with the book cover, title and author, a progress bar and the device in use. Includes a stop-session button and auto-refresh. Configure the server URL and an admin API token under Settings &rarr; Utilities &rarr; AudioBookShelf Streams.
 ]]>
 </INLINE>
 </FILE>
@@ -798,10 +812,10 @@ switch ($action) {
 echo ""
 echo "-----------------------------------------------------------"
 echo " audiobookshelf.streams has been installed."
-echo " Version: 2026.11.19"
+echo " Version: 2026.11.19a"
 echo ""
 echo " Add your server URL and admin API token under"
-echo " Settings > Utilities > Audiobookshelf Streams."
+echo " Settings > Utilities > AudioBookShelf Streams."
 echo "-----------------------------------------------------------"
 echo ""
 ]]>

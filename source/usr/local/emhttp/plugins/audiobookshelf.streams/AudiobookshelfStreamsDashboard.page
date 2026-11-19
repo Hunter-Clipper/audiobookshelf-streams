@@ -10,18 +10,18 @@ $abss_csrf = function_exists('abss_csrf_token') ? abss_csrf_token() : '';
 $abss_refresh = (int)(abss_settings()['REFRESH_SECONDS']);
 
 $mytiles[$abss_plugin]['column2'] = <<<'EOT'
-<tbody title="_(Who is listening on Audiobookshelf)_">
+<tbody title="_(Who is listening on AudioBookShelf)_">
 <tr><td>
   <div class="tile-header" id="abss-dashboard-card">
     <div class="tile-header-left">
       <i class="fa fa-fw fa-headphones f32"></i>
       <div class="section">
-        <h3 class="tile-header-main" id="abss-dashboard-title">_(Audiobookshelf Streams)_</h3>
+        <h3 class="tile-header-main" id="abss-dashboard-title">_(AudioBookShelf Streams)_</h3>
       </div>
     </div>
     <div class="tile-header-right">
       <div class="tile-header-right-controls">
-        <a href="/Utilities/AudiobookshelfStreams" title="_(Audiobookshelf Streams settings)_"><i class="fa fa-fw fa-cog control"></i></a>
+        <a href="/Utilities/AudiobookshelfStreams" title="_(AudioBookShelf Streams settings)_"><i class="fa fa-fw fa-cog control"></i></a>
       </div>
     </div>
   </div>
